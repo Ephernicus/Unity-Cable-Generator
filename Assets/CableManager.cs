@@ -38,13 +38,6 @@ public class CableManager : MonoBehaviour
         Rebuild(); // generate cable
     }
 
-    // constant refresh in edit mode
-    void Update() 
-    {
-        if (!Application.isPlaying)
-            Rebuild();
-    }
-
     // builds the cable 
     [HideInInspector] public void Rebuild()
     {
