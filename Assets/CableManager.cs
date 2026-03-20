@@ -6,8 +6,8 @@ using System.Collections.Generic;
 
 public class CableManager : MonoBehaviour
 {
-    public Transform startPoint; // transform info of the points
-    public Transform endPoint;
+    public Vector3 startPoint;
+    public Vector3 endPoint;
 
     // cable settings
     [Min(1)] public int segmentCount = 12;
@@ -15,9 +15,9 @@ public class CableManager : MonoBehaviour
     [Min(0.001f)] public float cableRadius = 0.03f;
 
     // sag settings
-    [Range(0f, 5f)] public float sag = 0.2f;
+    [Range(0f, 8f)] public float sag = 0.2f;
 
-    [HideInInspector] public List<Vector3> cablePoints = new List<Vector3>(); // hidden list storing points
+    [HideInInspector] public List<Vector3> cablePoints = new List<Vector3>(); // stores cable point chain
 
     // private mesh references
     MeshFilter meshFilter; // mesh component
@@ -48,7 +48,7 @@ public class CableManager : MonoBehaviour
     // builds the cable 
     [HideInInspector] public void Rebuild()
     {
-        if (startPoint == null || endPoint == null) return; // stop if neither points exist
+        if (startPoint == endPoint) return; // stop if points are the same
         BuildPointChain();
         BuildTubeMesh();
     }
@@ -59,8 +59,8 @@ public class CableManager : MonoBehaviour
         cablePoints.Clear(); // remove any old points
 
         // get start and end positions in world space
-        Vector3 a = startPoint.position;
-        Vector3 b = endPoint.position;
+        Vector3 a = startPoint;
+        Vector3 b = endPoint;
 
         for (int i = 0; i <= segmentCount; i++)
         {
