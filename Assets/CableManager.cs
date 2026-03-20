@@ -10,12 +10,12 @@ public class CableManager : MonoBehaviour
     public Transform endPoint;
 
     // cable settings
-    [Min(2)] public int segmentCount = 12;
+    [Min(1)] public int segmentCount = 12;
     [Min(3)] public int ringSides = 8;
     [Min(0.001f)] public float cableRadius = 0.03f;
 
-    // TODO*** fake physics 
-    [Range(0f, 2f)] public float sag = 0.2f;
+    // sag settings
+    [Range(0f, 5f)] public float sag = 0.2f;
 
     [HideInInspector] public List<Vector3> cablePoints = new List<Vector3>(); // hidden list storing points
 
@@ -37,6 +37,13 @@ public class CableManager : MonoBehaviour
         meshFilter.sharedMesh = cableMesh; // object will render geometry placed into cableMesh
         Rebuild(); // generate cable
     }
+
+    // constant refresh when values change
+    void OnValidate()
+    {
+        if (!Application.isPlaying) 
+        Rebuild();
+    }   
 
     // builds the cable 
     [HideInInspector] public void Rebuild()
@@ -60,7 +67,7 @@ public class CableManager : MonoBehaviour
             float t = i / (float)segmentCount; // divides line into equal segments
             Vector3 p = Vector3.Lerp(a, b, t); 
 
-            // TODO*** fake sag for now
+            // sag
             float sagAmount = Mathf.Sin(t * Mathf.PI) * sag;
             p += Vector3.down * sagAmount;
 

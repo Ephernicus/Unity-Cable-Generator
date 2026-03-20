@@ -4,8 +4,9 @@ using UnityEngine;
 [CustomEditor(typeof(CableManager))]
 public class CableHandles : Editor
 {
-    public override void OnSceneGUI()
+    public void OnSceneGUI()
     {
+
         // get reference and safety check
         CableManager cable = (CableManager)target;
         if (cable.startPoint == null || cable.endPoint == null) return;
