@@ -1,2 +1,14 @@
 # Unity-Cable-Generator
-An intuitive cable generator tool to help you quickly build out all those annoying wires. Made in Unity
+
+### TODOs
+
+- menu UI/UX
+- static and physics mode debug
+- one-click cable creation in hierarchy 
+- collision toggle checkbox
+  
+
+### BACKLOG
+- various cable mesh types (chain, rope braid, twist, etc.)
+- physics reactive hanging objects
+- manual cable routing/pinpoint
