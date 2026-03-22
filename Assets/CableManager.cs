@@ -55,6 +55,13 @@ public class CableManager : MonoBehaviour
 
         meshFilter.sharedMesh = cableMesh; // object will render geometry placed into cableMesh
 
+        // set default endpoints on first creation
+        if (startPoint == Vector3.zero && endPoint == Vector3.zero)
+        {
+            startPoint = transform.position + Vector3.left;
+            endPoint = transform.position + Vector3.right;
+        }
+
         if (mode == CableMode.Physics)
             InitializePhysics();
         else
@@ -64,13 +71,8 @@ public class CableManager : MonoBehaviour
     // constant refresh when values change
     void OnValidate()
     {
-        if (!Application.isPlaying)
-        {
-            if (mode == CableMode.Static)
-                Rebuild();
-            else
-                InitializePhysics();
-        }
+        if (!Application.isPlaying && mode == CableMode.Static)
+            Rebuild();
     }
 
     // runs physics each frame
@@ -261,7 +263,7 @@ public class CableManager : MonoBehaviour
             if (right.sqrMagnitude < 0.001f) //
                 right = Vector3.Cross(Vector3.right, forward).normalized;
 
-            // ccompute new normal for current ring
+            // compute new normal for current ring
             Vector3 normal = Vector3.Cross(forward, right).normalized;
             prevNormal = normal;
 

@@ -4,12 +4,8 @@ using UnityEngine;
 [CustomEditor(typeof(CableManager))]
 public class CableHandles : Editor
 {
-    private int placingPoint = -1; // -1 = none, 0 = start, 1 = end
-
     public override void OnInspectorGUI()
     {
-        EscapeKey();
-
         CableManager cable = (CableManager)target;
 
         // mode dropdown
@@ -66,23 +62,6 @@ public class CableHandles : Editor
                 cable.RebuildMesh();
         }
 
-        DrawInspectorUI();
-    }
-
-    // draws inspector buttons and instructions
-    private void DrawInspectorUI()
-    {
-        EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Quick Setup", EditorStyles.boldLabel);
-
-        if (GUILayout.Button("Click to Place Start Point", GUILayout.Height(30)))
-            placingPoint = 0;
-
-        if (GUILayout.Button("Click to Place End Point", GUILayout.Height(30)))
-            placingPoint = 1;
-
-        if (placingPoint >= 0)
-            EditorGUILayout.HelpBox("Click in the scene to place the " + (placingPoint == 0 ? "start" : "end") + " point. ESC to cancel.", MessageType.Info);
     }
 
     // hides transform tool when cable is selected
@@ -97,23 +76,10 @@ public class CableHandles : Editor
         Tools.hidden = false;
     }
 
-    // handles scene GUI for placing and dragging points
+    // handles scene GUI for dragging points
     public void OnSceneGUI()
     {
         CableManager cable = (CableManager)target;
-
-        if (placingPoint >= 0)
-        {
-            ClickToPlace(cable);
-            return;
-        }
-
-        DrawHandles(cable);
-    }
-
-    // calls helpers to draw handles
-    private void DrawHandles(CableManager cable)
-    {
         DrawEndpointMarkers(cable);
         DragPoint(ref cable.startPoint, "Move Cable Start", Color.green);
         DragPoint(ref cable.endPoint, "Move Cable End", Color.red);
@@ -132,40 +98,6 @@ public class CableHandles : Editor
         Handles.SphereHandleCap(0, cable.endPoint, Quaternion.identity, endSize, EventType.Repaint);
     }
 
-    // handles point placement input
-    private void ClickToPlace(CableManager cable)
-    {
-        Event click = Event.current;
-
-        if (click.type == EventType.MouseDown && click.button == 0)
-        {
-            Ray ray = HandleUtility.GUIPointToWorldRay(click.mousePosition);
-
-            // raycast against scene geometry, fallback to a point 10 units from camera
-            Vector3 hitPoint;
-            if (Physics.Raycast(ray, out RaycastHit hit))
-                hitPoint = hit.point;
-            else
-                hitPoint = ray.GetPoint(10f);
-
-            if (placingPoint == 0)
-            {
-                Undo.RecordObject(cable, "Set Cable Start Point");
-                cable.startPoint = hitPoint;
-            }
-            else
-            {
-                Undo.RecordObject(cable, "Set Cable End Point");
-                cable.endPoint = hitPoint;
-            }
-
-            EditorUtility.SetDirty(cable);
-            cable.Rebuild();
-            placingPoint = -1;
-            click.Use();
-        }
-    }
-
     // handles point dragging
     private void DragPoint(ref Vector3 point, string label, Color color)
     {
@@ -182,13 +114,5 @@ public class CableHandles : Editor
         }
     }
 
-    // handles ESC key to cancel point placement
-    private void EscapeKey()
-    {
-        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Escape && placingPoint >= 0)
-        {
-            placingPoint = -1;
-            Event.current.Use();
-        }
-    }
+
 }
