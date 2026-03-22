@@ -1,7 +1,7 @@
 using UnityEngine;
 
-[ExecuteAlways]
-[RequireComponent(typeof(CableManager))]
+[ExecuteAlways] // runs in edit mode
+[RequireComponent(typeof(CableManager))] // ensures CableManager is present 
 public class CablePhysics : MonoBehaviour
 {
     // inspector settings
@@ -24,93 +24,96 @@ public class CablePhysics : MonoBehaviour
     void OnEnable()
     {
         cable = GetComponent<CableManager>();
-        InitPhysics();
+        Initialize();
     }
 
     // set up particles evenly between start and end
-    public void InitPhysics()
+    public void Initialize()
     {
         if (cable == null) return;
 
-        int count = cable.segmentCount + 1;
+        int count = cable.segmentCount + 1; // refers to chain points
         positions = new Vector3[count];
         prevPositions = new Vector3[count];
 
+        // loops through each points and places them evenly between start and end
         for (int i = 0; i < count; i++)
         {
             float t = i / (float)cable.segmentCount;
             positions[i] = Vector3.Lerp(cable.startPoint, cable.endPoint, t);
-            prevPositions[i] = positions[i];
+            prevPositions[i] = positions[i]; // set prev pos to current pos = zero velocity at start
         }
 
-        segmentLength = Vector3.Distance(cable.startPoint, cable.endPoint) / cable.segmentCount;
+        segmentLength = Vector3.Distance(cable.startPoint, cable.endPoint) / cable.segmentCount; // calculates segment length
     }
 
-    void Update() => SimulatePhysics();
+    // runs physics each frame
+    void Update() => RunPhysics();
 
     // runs one frame of physics
-    void SimulatePhysics()
+    void RunPhysics()
     {
         if (cable == null || positions == null || positions.Length < 2) return;
 
-        float dt = Mathf.Min(Time.deltaTime, 0.02f); // clamp for stability in scene mode
+        float time = Mathf.Min(Time.deltaTime, 0.02f); // time since last frame capped to 0.02 for stability
 
-
+        // loop through points except fixed endpoints
         for (int i = 1; i < positions.Length - 1; i++)
         {
-            Vector3 velocity = (positions[i] - prevPositions[i]) * damping;
-            prevPositions[i] = positions[i];
-            positions[i] += velocity + Vector3.down * gravity * dt * dt;
+            Vector3 velocity = (positions[i] - prevPositions[i]) * damping; // velocity = current - previous
+            prevPositions[i] = positions[i]; // save current as prev for next frame
+            positions[i] += velocity + Vector3.down * gravity * time * time; // apply velocity and gravity
         }
 
-        ResolveCollisions();
-        SolveConstraints();
-        ResolveCollisions(); 
+        // rest of physics pipeline
+        Collisions();
+        Spacing();
+        Collisions(); // extra collision after spacing to prevent tunneling
         UpdateMesh();
     }
 
     // handles collisions with others
-    void ResolveCollisions()
+    void Collisions()
     {
         for (int i = 1; i < positions.Length - 1; i++)
         {
-            Collider[] hits = Physics.OverlapSphere(positions[i], cable.cableRadius);
+            Collider[] hits = Physics.OverlapSphere(positions[i], cable.cableRadius); // check for colliders within cable radius of point
             foreach (var col in hits)
             {
-                Vector3 closest = col.ClosestPoint(positions[i]);
-                float dist = Vector3.Distance(positions[i], closest);
+                Vector3 closest = col.ClosestPoint(positions[i]); // get closest point on collider to cable point
+                float dist = Vector3.Distance(positions[i], closest); // distance from cable point to closest point
 
                 // particle is inside the collider
                 if (dist < cable.cableRadius)
                 {
-                    Vector3 pushDir = (positions[i] - closest).normalized;
-                    if (pushDir.sqrMagnitude < 0.001f)
+                    Vector3 pushDir = (positions[i] - closest).normalized; // direction to push cable point out of collider
+                    if (pushDir.sqrMagnitude < 0.001f) // use an arbitrary push direction if too close
                         pushDir = Vector3.up;
-                    positions[i] = closest + pushDir * cable.cableRadius;
+                    positions[i] = closest + pushDir * cable.cableRadius; // move cable point 
                 }
             }
         }
     }
 
     // enforces fixed particle distance
-    void SolveConstraints()
-    {
-        for (int iter = 0; iter < stiffness; iter++)
+    void Spacing()
+    {   // multi pass
+        for (int i = 0; i < stiffness; i++)
         {
-            for (int i = 0; i < positions.Length - 1; i++)
+            for (int j = 0; j < positions.Length - 1; j++)
             {
-                Vector3 delta = positions[i + 1] - positions[i];
+                Vector3 delta = positions[j + 1] - positions[j]; // point a to b
                 float dist = delta.magnitude;
-                if (dist < 0.0001f) continue;
+                if (dist < 0.0001f) continue; // avoid division by zero
 
-                float error = (dist - segmentLength) / dist;
-                Vector3 correction = delta * 0.5f * error;
+                float error = (dist - segmentLength) / dist; // how much the segment deviates from desired spacing
+                Vector3 correction = delta * 0.5f * error; // how much to move each point to correct spacing (half the error)
 
                 // don't move pinned endpoints
-                if (i != 0)
-                    positions[i] += correction;
-                if (i + 1 != positions.Length - 1)
-                    positions[i + 1] -= correction;
+                if (j != 0)
+                    positions[j] += correction;
+                if (j + 1 != positions.Length - 1)
+                    positions[j + 1] -= correction;
             }
 
             // re-pin endpoints after each iteration
@@ -119,7 +122,7 @@ public class CablePhysics : MonoBehaviour
         }
     }
 
-    // updates cable mesh
+    // updates/rebuilds cable mesh
     void UpdateMesh()
     {
         cable.cablePoints.Clear();

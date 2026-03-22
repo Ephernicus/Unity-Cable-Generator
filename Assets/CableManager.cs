@@ -48,7 +48,7 @@ public class CableManager : MonoBehaviour
     // builds the cable
     [HideInInspector] public void Rebuild()
     {
-        if (startPoint == endPoint) return; // stop if points are the same
+        if (startPoint == endPoint) return;
         BuildPointChain();
         BuildTubeMesh();
     }

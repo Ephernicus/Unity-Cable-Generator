@@ -33,7 +33,6 @@ public class CableHandles : Editor
     public void OnSceneGUI()
     {
         CableManager cable = (CableManager)target;
-        Tools.hidden = true;
 
         if (placingPoint >= 0)
         {
