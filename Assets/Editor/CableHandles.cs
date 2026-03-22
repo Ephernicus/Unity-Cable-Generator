@@ -9,7 +9,63 @@ public class CableHandles : Editor
     public override void OnInspectorGUI()
     {
         EscapeKey();
-        DrawDefaultInspector();
+
+        CableManager cable = (CableManager)target;
+
+        // mode dropdown
+        cable.mode = (CableMode)EditorGUILayout.EnumPopup("Mode", cable.mode);
+
+        // snapshot values to detect what changed
+        Vector3 prevStart = cable.startPoint;
+        Vector3 prevEnd = cable.endPoint;
+        int prevSegments = cable.segmentCount;
+        int prevSides = cable.ringSides;
+        float prevRadius = cable.cableRadius;
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Endpoints", EditorStyles.boldLabel);
+        cable.startPoint = EditorGUILayout.Vector3Field("Start Point", cable.startPoint);
+        cable.endPoint = EditorGUILayout.Vector3Field("End Point", cable.endPoint);
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Cable Shape", EditorStyles.boldLabel);
+        cable.segmentCount = EditorGUILayout.IntSlider("Segments", cable.segmentCount, 1, 100);
+        cable.ringSides = EditorGUILayout.IntSlider("Sides", cable.ringSides, 3, 32);
+        cable.cableRadius = EditorGUILayout.Slider("Radius", cable.cableRadius, 0.001f, 1f);
+
+        EditorGUILayout.Space();
+
+        // mode-specific settings
+        if (cable.mode == CableMode.Static)
+        {
+            EditorGUILayout.LabelField("Static Settings", EditorStyles.boldLabel);
+            cable.sag = EditorGUILayout.Slider("Sag", cable.sag, 0f, 8f);
+        }
+        else
+        {
+            EditorGUILayout.LabelField("Physics Settings", EditorStyles.boldLabel);
+            cable.gravity = EditorGUILayout.Slider("Gravity", cable.gravity, 0f, 20f);
+            cable.damping = EditorGUILayout.Slider("Damping", cable.damping, 0.5f, 1f);
+            cable.stiffness = EditorGUILayout.IntSlider("Stiffness", cable.stiffness, 1, 30);
+        }
+
+        // mark dirty if anything changed
+        if (GUI.changed)
+        {
+            Undo.RecordObject(cable, "Edit Cable");
+            EditorUtility.SetDirty(cable);
+
+            bool structureChanged = cable.startPoint != prevStart || cable.endPoint != prevEnd || cable.segmentCount != prevSegments;
+            bool shapeChanged = cable.ringSides != prevSides || cable.cableRadius != prevRadius;
+
+            if (cable.mode == CableMode.Static)
+                cable.Rebuild();
+            else if (structureChanged)
+                cable.InitializePhysics();
+            else if (shapeChanged)
+                cable.RebuildMesh();
+        }
+
         DrawInspectorUI();
     }
 
@@ -27,6 +83,18 @@ public class CableHandles : Editor
 
         if (placingPoint >= 0)
             EditorGUILayout.HelpBox("Click in the scene to place the " + (placingPoint == 0 ? "start" : "end") + " point. ESC to cancel.", MessageType.Info);
+    }
+
+    // hides transform tool when cable is selected
+    private void OnEnable()
+    {
+        Tools.hidden = true;
+    }
+
+    // restores transform tool when cable is deselected
+    private void OnDisable()
+    {
+        Tools.hidden = false;
     }
 
     // handles scene GUI for placing and dragging points
@@ -73,15 +141,22 @@ public class CableHandles : Editor
         {
             Ray ray = HandleUtility.GUIPointToWorldRay(click.mousePosition);
 
+            // raycast against scene geometry, fallback to a point 10 units from camera
+            Vector3 hitPoint;
+            if (Physics.Raycast(ray, out RaycastHit hit))
+                hitPoint = hit.point;
+            else
+                hitPoint = ray.GetPoint(10f);
+
             if (placingPoint == 0)
             {
                 Undo.RecordObject(cable, "Set Cable Start Point");
-                cable.startPoint = ray.origin;
+                cable.startPoint = hitPoint;
             }
             else
             {
                 Undo.RecordObject(cable, "Set Cable End Point");
-                cable.endPoint = ray.origin;
+                cable.endPoint = hitPoint;
             }
 
             EditorUtility.SetDirty(cable);
