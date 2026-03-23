@@ -7,6 +7,7 @@ public class CableHandles : Editor
     private bool snapEnabled = true;
     private bool prevSnapEnabled = true;
     private const int snapDistance = 1;
+    private bool editGroup = false;
 
     public override void OnInspectorGUI()
     {
@@ -30,6 +31,9 @@ public class CableHandles : Editor
         cable.endPoint = EditorGUILayout.Vector3Field("End Point", cable.endPoint);
 
         EditorGUILayout.Space();
+        snapEnabled = EditorGUILayout.ToggleLeft("Snapping", snapEnabled, EditorStyles.boldLabel);
+
+        EditorGUILayout.Space();
         EditorGUILayout.LabelField("Cable Shape", EditorStyles.boldLabel);
         cable.segmentCount = EditorGUILayout.IntSlider("Segments", cable.segmentCount, 1, 100);
         cable.ringSides = EditorGUILayout.IntSlider("Sides", cable.ringSides, 3, 32);
@@ -50,9 +54,6 @@ public class CableHandles : Editor
             cable.damping = EditorGUILayout.Slider("Damping", cable.damping, 0.5f, 1f);
             cable.stiffness = EditorGUILayout.IntSlider("Stiffness", cable.stiffness, 1, 30);
         }
-                            
-        EditorGUILayout.Space();
-        snapEnabled = EditorGUILayout.ToggleLeft("Snapping", snapEnabled, EditorStyles.boldLabel);
 
         // snap existing endpoints when toggling snap on
         if (snapEnabled && !prevSnapEnabled)
@@ -63,6 +64,19 @@ public class CableHandles : Editor
             cable.Rebuild();
         }
         prevSnapEnabled = snapEnabled;
+
+        // ==================== BATCH ====================
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Batch Management", EditorStyles.boldLabel);
+        cable.group = (CableGroup)EditorGUILayout.EnumPopup("Group", cable.group);
+        editGroup = EditorGUILayout.ToggleLeft("Edit Group", editGroup);
+
+        if (editGroup)
+        {
+            string groupName = System.Text.RegularExpressions.Regex.Replace(cable.group.ToString(), "(\\d)", " $1");
+            EditorGUILayout.HelpBox("Changes will apply to all cables in " + groupName + ".", MessageType.None);
+        }
 
         // mark dirty if anything changed
         if (GUI.changed)
@@ -78,6 +92,33 @@ public class CableHandles : Editor
                 cable.InitializePhysics();
             else if (shapeChanged)
                 cable.RebuildMesh();
+
+            // propagate changes to all cables in the same group
+            if (editGroup)
+            {
+                CableManager[] allCables = FindObjectsOfType<CableManager>();
+                foreach (var other in allCables)
+                {
+                    if (other == cable || other.group != cable.group) continue;
+
+                    other.mode = cable.mode;
+                    other.segmentCount = cable.segmentCount;
+                    other.ringSides = cable.ringSides;
+                    other.cableRadius = cable.cableRadius;
+                    other.sag = cable.sag;
+                    other.gravity = cable.gravity;
+                    other.damping = cable.damping;
+                    other.stiffness = cable.stiffness;
+                    EditorUtility.SetDirty(other);
+
+                    if (other.mode == CableMode.Static)
+                        other.Rebuild();
+                    else if (structureChanged)
+                        other.InitializePhysics();
+                    else if (shapeChanged)
+                        other.RebuildMesh();
+                }
+            }
         }
 
     }

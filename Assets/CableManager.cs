@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 
 public enum CableMode { Static, Physics }
+public enum CableGroup { None, Group1, Group2, Group3, Group4, Group5, Group6 }
 
 [ExecuteAlways] // run during edit mode
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))] // object must haves
@@ -9,6 +10,7 @@ public enum CableMode { Static, Physics }
 public class CableManager : MonoBehaviour
 {
     public CableMode mode = CableMode.Static;
+    public CableGroup group = CableGroup.None;
 
     public Vector3 startPoint;
     public Vector3 endPoint;
