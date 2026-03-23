@@ -298,12 +298,12 @@ public class CableManager : MonoBehaviour
 
                 // turn quad into 2 triangles
                 triangles.Add(a0);
-                triangles.Add(b0);
                 triangles.Add(a1);
+                triangles.Add(b0);
 
                 triangles.Add(a1);
-                triangles.Add(b0);
                 triangles.Add(b1);
+                triangles.Add(b0);
             }
         }
 
