@@ -7,7 +7,7 @@
 - Intuitive user interface and one-click creation for streamlined workflow
 - Optimized for game performance
 
-## INSTALLATION🌠
+### INSTALLATION🌠
 1. Download the latest .unitypackage from Release
 2. In Unity: Assets → Import Package → Custom Package
 3. Select the downloaded file and import
