@@ -33,12 +33,19 @@ public class CableManager : MonoBehaviour
     [Tooltip("How rigid the cable is. Stretchy -> Stiff")]
     [Range(1, 30)] public int stiffness = 10;
 
-    [HideInInspector] public List<Vector3> cablePoints = new List<Vector3>(); // stores cable point chain
+    [SerializeField] private List<Vector3> cablePoints = new List<Vector3>(); // stores cable point chain
 
     // physics state
     Vector3[] positions;
     Vector3[] prevPositions;
     float segmentLength;
+
+    private Collider[] collisionRange = new Collider[16]; // buffer for collision detection
+
+    private List<Vector3> vertices = new List<Vector3>();
+    private List<Vector3> normals = new List<Vector3>();
+    private List<Vector2> uvs = new List<Vector2>();
+    private List<int> triangles = new List<int>();
 
     // private mesh references
     MeshFilter meshFilter; // mesh component
@@ -85,7 +92,7 @@ public class CableManager : MonoBehaviour
     }
 
     // builds the cable
-    [HideInInspector] public void Rebuild()
+    public void Rebuild()
     {
         if (startPoint == endPoint) return;
         BuildPointChain();
@@ -93,7 +100,7 @@ public class CableManager : MonoBehaviour
     }
 
     // rebuilds mesh from existing cablePoints (used by physics)
-    [HideInInspector] public void RebuildMesh()
+    public void RebuildMesh()
     {
         BuildTubeMesh();
     }
@@ -105,14 +112,10 @@ public class CableManager : MonoBehaviour
     {
         cablePoints.Clear(); // remove any old points
 
-        // get start and end positions in world space
-        Vector3 a = startPoint;
-        Vector3 b = endPoint;
-
         for (int i = 0; i <= segmentCount; i++)
         {
             float t = i / (float)segmentCount; // divides line into equal segments
-            Vector3 p = Vector3.Lerp(a, b, t);
+            Vector3 p = Vector3.Lerp(startPoint, endPoint, t);
 
             // sag
             float sagAmount = Mathf.Sin(t * Mathf.PI) * sag;
@@ -149,8 +152,19 @@ public class CableManager : MonoBehaviour
     {
         if (positions == null || positions.Length < 2) return;
 
-        float time = Mathf.Min(Time.deltaTime, 0.02f); // time since last frame capped to 0.02 for stability
+        // eun physics pipeline
+        Gravity();
+        Collisions();
+        Spacing();
+        Collisions(); // extra collision after spacing to prevent tunneling
+        UpdatePhysicsMesh();
+    }
 
+    // applies gravity and damping to all except fixed endpoints
+    void Gravity()
+    {
+        float time = Mathf.Min(Time.deltaTime, 0.02f); // time since last frame capped to 0.02 for stability
+        
         // loop through points except fixed endpoints
         for (int i = 1; i < positions.Length - 1; i++)
         {
@@ -158,12 +172,6 @@ public class CableManager : MonoBehaviour
             prevPositions[i] = positions[i]; // save current as prev for next frame
             positions[i] += velocity + Vector3.down * gravity * time * time; // apply velocity and gravity
         }
-
-        // rest of physics pipeline
-        Collisions();
-        Spacing();
-        Collisions(); // extra collision after spacing to prevent tunneling
-        UpdatePhysicsMesh();
     }
 
     // handles collisions with others
@@ -171,9 +179,10 @@ public class CableManager : MonoBehaviour
     {
         for (int i = 1; i < positions.Length - 1; i++)
         {
-            Collider[] hits = Physics.OverlapSphere(positions[i], cableRadius); // check for colliders within cable radius of point
-            foreach (var col in hits)
+            int hits = Physics.OverlapSphereNonAlloc(positions[i], cableRadius, collisionRange); // check for colliders within cable radius of point
+            for (int j = 0; j < hits; j++)
             {
+                Collider col = collisionRange[j];
                 Vector3 closest = col.ClosestPoint(positions[i]); // get closest point on collider to cable point
                 float dist = Vector3.Distance(positions[i], closest); // distance from cable point to closest point
 
@@ -196,17 +205,17 @@ public class CableManager : MonoBehaviour
         {
             for (int j = 0; j < positions.Length - 1; j++)
             {
-                Vector3 delta = positions[j + 1] - positions[j]; // point a to b
-                float dist = delta.magnitude;
+                Vector3 space = positions[j + 1] - positions[j]; // vector from one point to the next
+                float dist = space.magnitude;
                 if (dist < 0.0001f) continue; // avoid division by zero
 
                 float error = (dist - segmentLength) / dist; // how much the segment deviates from desired spacing
-                Vector3 correction = delta * 0.5f * error; // how much to move each point to correct spacing (half the error)
+                Vector3 correction = space * 0.5f * error; // how much to move each point to correct spacing (half the error)
 
                 // don't move pinned endpoints
-                if (j != 0)
+                if (j != 0) // if j isnt the first point move it forward
                     positions[j] += correction;
-                if (j + 1 != positions.Length - 1)
+                if (j + 1 != positions.Length - 1) // if j+1 isnt the last point move it backward
                     positions[j + 1] -= correction;
             }
 
@@ -219,11 +228,11 @@ public class CableManager : MonoBehaviour
     // updates/rebuilds cable mesh
     void UpdatePhysicsMesh()
     {
-        cablePoints.Clear();
-        for (int i = 0; i < positions.Length; i++)
+        cablePoints.Clear(); // clear old points
+        for (int i = 0; i < positions.Length; i++) // convert new point positions from world space to local
             cablePoints.Add(transform.InverseTransformPoint(positions[i]));
 
-        RebuildMesh();
+        RebuildMesh(); // build mesh around new points
     }
 
     // ==================== MESH GENERATION ====================
@@ -233,11 +242,10 @@ public class CableManager : MonoBehaviour
     {
         if (cablePoints.Count < 2) return;
         cableMesh.Clear();
-
-        List<Vector3> vertices = new();
-        List<Vector3> normals = new();
-        List<Vector2> uvs = new();
-        List<int> triangles = new();
+        vertices.Clear();
+        normals.Clear();
+        uvs.Clear();
+        triangles.Clear();
 
         Vector3 prevNormal = Vector3.up;
 
@@ -248,7 +256,7 @@ public class CableManager : MonoBehaviour
             // compute forward direction
             Vector3 center = cablePoints[i]; // current point location, will be center of generated ring
 
-            Vector3 forward; // vector direction of cable through each point (tangent of ring)
+            Vector3 forward; //vector direction of cable through each point (tangent of ring)
             if (i == 0) // first point
                 forward = (cablePoints[i + 1] - cablePoints[i]).normalized; // forward points to next
             else if (i == cablePoints.Count - 1) // last point
@@ -259,10 +267,11 @@ public class CableManager : MonoBehaviour
             // compute right vector by cross product, perpendicular to both forward and prevNormal
             Vector3 right = Vector3.Cross(prevNormal, forward).normalized;
 
-            // if forward and prevNormal are parallel, use world up/right as fallback
+            // checks if forward and prevnormal are parallel -> if cross prod = 0
+            // if so use world up/right as fallback
             if (right.sqrMagnitude < 0.001f)
                 right = Vector3.Cross(Vector3.up, forward).normalized;
-            if (right.sqrMagnitude < 0.001f) //
+            if (right.sqrMagnitude < 0.001f)
                 right = Vector3.Cross(Vector3.right, forward).normalized;
 
             // compute new normal for current ring
