@@ -15,6 +15,7 @@ public class CableHandles : Editor
     {
         // ==================== INSPECTOR GUI ====================
 
+        CableMode prevMode = cable.mode;
         // mode dropdown
         cable.mode = (CableMode)EditorGUILayout.EnumPopup("Mode", cable.mode);
 
@@ -98,7 +99,7 @@ public class CableHandles : Editor
             if (editGroup)
             {
                 // look for all cables in scene
-                CableManager[] allCables = FindObjectsOfType<CableManager>();
+                CableManager[] allCables = FindObjectsByType<CableManager>(FindObjectsSortMode.None);
 
                 foreach (var other in allCables)
                 {   // skip current selected and cables in different groups
@@ -178,8 +179,6 @@ public class CableHandles : Editor
             point = newPosition;
             if (cable.mode == CableMode.Static)
                 cable.Rebuild();
-            else
-                cable.InitializePhysics();
             EditorUtility.SetDirty(cable);
         }
     }
