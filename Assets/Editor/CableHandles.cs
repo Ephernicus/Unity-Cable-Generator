@@ -11,7 +11,7 @@ public class CableHandles : Editor
     private CableManager cable; 
     private Collider[] collisionRange = new Collider[16]; // reusable array for collision checks
 
-    public override void OnInspectorGUI()
+    public override void OnInspectorGUI() 
     {
         // ==================== INSPECTOR GUI ====================
 
