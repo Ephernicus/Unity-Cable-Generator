@@ -80,6 +80,9 @@ public class CableManager : MonoBehaviour
     // constant refresh when values change
     void OnValidate()
     {
+        // OnEnable hasn't run yet (e.g. editor restoring scenes on startup) - nothing to rebuild
+        if (cableMesh == null) return;
+
         if (!Application.isPlaying && mode == CableMode.Static)
             Rebuild();
     }

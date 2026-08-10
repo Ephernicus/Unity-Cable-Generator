@@ -31,7 +31,7 @@ public class MoveCamera : MonoBehaviour
         transform.rotation = Quaternion.Euler(pitch, yaw, 0);
 
         // camera movement
-        Vector3 dir = Vector3.zero;
+        Vector3 dir = Vector3.zero; // 
         if (keyboard.wKey.isPressed) dir += transform.forward;
         if (keyboard.sKey.isPressed) dir -= transform.forward;
         if (keyboard.dKey.isPressed) dir += transform.right;
